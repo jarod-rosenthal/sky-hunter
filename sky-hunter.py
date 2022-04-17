@@ -13,7 +13,14 @@ from datetime import datetime
 from twilio.rest import Client
 import os, argparse
 
-logging.basicConfig(filename='output.log', level=logging.DEBUG)
+# Create and configure logger
+logging.basicConfig(filename="output.log",
+                    format='%(asctime)s %(message)s',
+                    filemode='w')
+
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
 
 # # =============================================================================
 # # Parse the command line
@@ -191,8 +198,7 @@ try:
         
         left=cv2.cvtColor(frame1,cv2.COLOR_BGR2RGBA).astype(np.float32)
         left=jetson.utils.cudaFromNumpy(left)
-        left_detect = net.Detect(left, overlay=opt.overlay) 
-        
+        left_detect = net.Detect(left, overlay=opt.overlay)
         for detect in left_detect:
             ID=detect.ClassID
             y=int(detect.Top)
@@ -222,7 +228,6 @@ try:
         right=cv2.cvtColor(frame2,cv2.COLOR_BGR2RGBA).astype(np.float32)
         right=jetson.utils.cudaFromNumpy(right)
         right_detect = net.Detect(right, overlay=opt.overlay) 
-        
         for detect in right_detect:
             ID=detect.ClassID
             y=int(detect.Top)
@@ -250,7 +255,6 @@ try:
                 break  
  
         detections = net.Detect(frame3, overlay=opt.overlay)
-        
         for detect in detections:
             ID=detect.ClassID
             y=int(detect.Top)
