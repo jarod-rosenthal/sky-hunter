@@ -203,7 +203,7 @@ try:
 
         _, frame1 = capture1.read()
         _, frame2 = capture2.read()
-        frame2 = cv2.flip(frame2, -1)
+        frame2 = cv2.flip(frame2, 0)
         frame3 = camera.Capture()
         
         timestamp = datetime.fromtimestamp(time.time())
