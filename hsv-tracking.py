@@ -203,7 +203,7 @@ try:
 
         _, frame1 = capture1.read()
         _, frame2 = capture2.read()
-        frame2 = cv2.flip(frame2, 0)
+        frame2 = cv2.flip(frame2, -1)
         frame3 = camera.Capture()
         
         timestamp = datetime.fromtimestamp(time.time())
@@ -234,8 +234,8 @@ try:
         for cnt in contours1:
             area=cv2.contourArea(cnt)
             (x,y,w,h)=cv2.boundingRect(cnt)
-            if area>=100 and contours2 is not True and detection == False:
-                countours1 = True
+            if area>=100 and detection == False:
+                detection = True
                 cv2.rectangle(frame1,(x,y),(x+w,y+h),(0,255,255),3)
                 objX=x+w/2
                 objY=y+h/2
@@ -253,12 +253,12 @@ try:
         for cnt in contours2:
             area=cv2.contourArea(cnt)
             (x,y,w,h)=cv2.boundingRect(cnt)
-            if area>=100 and contours1 is not True and detection == False:
-                contours2 = True
+            if area>=100 and detection == False:
+                detection = True
                 cv2.rectangle(frame2,(x,y),(x+w,y+h),(0,255,255),3)
                 objX=x+w/2
                 objY=y+h/2
-                pan = objX//3 - 30
+                pan = objX//3 - 40
                 tilt = objY//6 + 90
                 if pan>179: pan=180
                 if pan<1: pan=0
@@ -283,29 +283,28 @@ try:
             # print(item,x,y,w,h,timestamp)
             # cv2.putText(frame3,item,(x,y+20),font,.95,(0,0,255),2)
             # cv2.rectangle(frame3,(x,y),(w,h),(0,255,255),3)
-            if item == 'person':
-                detection = True
-                status=1
-                objX=(x//2)+(w//2)
-                objY=(y//2)+(h//2)
-                errorPan=objX-width/2
-                errorTilt=objY-height/2
-                if abs(errorTilt)>20:
-                    tilt=tilt+errorTilt/100
-                if tilt<95:
-                    if abs(errorPan)>15:
-                        pan=pan-errorPan/70
-                if tilt>95:
-                    if abs(errorPan)>15:
-                        pan=pan+errorPan/70
-                if pan>179: pan=179
-                if pan<1: pan=1
-                if tilt>179: tilt=179
-                if tilt<1: tilt=1
-                kit.servo[0].angle=pan
-                kit.servo[1].angle=tilt
-                lastDetected = timestamp
-                detection = True
+            # if item == 'person':
+            #     detection = True
+            #     status=1
+            #     objX=(x//2)+(w//2)
+            #     objY=(y//2)+(h//2)
+            #     errorPan=objX-width/2
+            #     errorTilt=objY-height/2
+            #     if abs(errorTilt)>20:
+            #         tilt=tilt+errorTilt/100
+            #     if tilt<95:
+            #         if abs(errorPan)>15:
+            #             pan=pan-errorPan/70
+            #     if tilt>95:
+            #         if abs(errorPan)>15:
+            #             pan=pan+errorPan/70
+            #     if pan>179: pan=179
+            #     if pan<1: pan=1
+            #     if tilt>179: tilt=179
+            #     if tilt<1: tilt=1
+            #     kit.servo[0].angle=pan
+            #     kit.servo[1].angle=tilt
+            #     lastDetected = timestamp
                 # print(pan, tilt)
 
         # if tilt>95:
@@ -355,12 +354,15 @@ try:
         cv2.putText(frame2,'fps: '+str(round(fps,1)),(0,30),font,1,(0,255,255),2) 
         display.Render(frame3)
         display.SetStatus("Object Detection | Network {:.0f} FPS".format(net.GetNetworkFPS()))
+        
         # cv2.rectangle(frame3,(0,0),(150,40),(0,0,255),-1)
         # cv2.putText(frame3,'fps: '+str(round(fps,1)),(0,30),font,1,(0,255,255),2)    
-        cv2.imshow("FGmask", np.vstack((FGmask1, FGmask2)))
-        cv2.imshow("Frame", np.vstack((frame1, frame2)))
+
+        # cv2.imshow("Frame", np.vstack((frame1, frame2)))
         # cv2.moveWindow("Frame", 0, 560)
+        
         # cv2.imshow('Frame3',frame3)
+        # frame1 = cv2.flip(frame1, -1)
 
         rtp_out_1.write(frame1)
         rtp_out_2.write(frame2)
@@ -370,11 +372,11 @@ try:
 
 except KeyboardInterrupt:
     print ('Stopped')
-    # Cleanup when closed
-    # for i in range(0,len(times),2):
-    #     df = df.append({'Start':times[i],'End':times[i+1]},ignore_index=True)
+
+    for i in range(0,len(times),2):
+        df = df.append({'Start':times[i],'End':times[i+1]},ignore_index=True)
         
-    # df.to_csv('./out_csv/times-%s.csv' % current_time)
+    df.to_csv('./out_csv/times-%s.csv' % current_time)
     cv2.waitKey(0)
     frame2.release()
     frame1.release()

@@ -183,10 +183,9 @@ font=cv2.FONT_HERSHEY_SIMPLEX
 try:
     print ('Ctrl-C to end')
     while True:
-
         _, frame1 = capture1.read()
         _, frame2 = capture2.read()
-        frame2 = cv2.flip(frame2, -1)
+        # frame2 = cv2.flip(frame2, 0)
         frame3 = camera.Capture()
         
         timestamp = datetime.fromtimestamp(time.time())
@@ -334,6 +333,7 @@ try:
         
         cv2.rectangle(frame1,(0,0),(150,40),(0,0,255),-1)  
         cv2.putText(frame1,'fps: '+str(round(fps,1)),(0,30),font,1,(0,255,255),2) 
+        frame2 = cv2.flip(frame2, -1)
         cv2.rectangle(frame2,(0,0),(150,40),(0,0,255),-1)
         cv2.putText(frame2,'fps: '+str(round(fps,1)),(0,30),font,1,(0,255,255),2) 
         display.Render(frame3)
