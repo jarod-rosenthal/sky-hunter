@@ -5,6 +5,9 @@ Hardware: NVIDIA Jetson Nano 4GB
 
 Software: [JetPack 4.6.1](https://developer.nvidia.com/embedded/downloads/) 
 
+	To compile OpenCV on your Jetson follow:
+	https://github.com/mdegans/nano_build_opencv
+
 ## Servo Library
 	pip3 install adafruit-circuitpython-ServoKit
 	# To make compatible with python3.6.9
@@ -31,7 +34,7 @@ Software: [JetPack 4.6.1](https://developer.nvidia.com/embedded/downloads/)
 	sudo docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 -p 8888:8888 aler9/rtsp-simple-server
 
 #### Publishes a stream to the RTSP server
-	sudo ffmpeg -f v4l2 -framerate 24 -video_size 6400x480 -i /dev/video0 -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:8554/webCamStream
+	sudo ffmpeg -f v4l2 -framerate 24 -video_size 640x480 -i /dev/video0 -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:8554/webCamStream
 	   
 #### Deepstream reference apps
 	https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps
