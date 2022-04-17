@@ -56,7 +56,6 @@ kit = ServoKit(channels=16, i2c=i2c_bus)
 tilt=90
 pan=90
 
-# # pan 0 is towards the right from 90 
 kit.servo[0].angle=pan
 time.sleep(0.3)
 kit.servo[1].angle=tilt
@@ -71,8 +70,8 @@ flip2=4
 dispW=640
 dispH=480
 
-width=640
-height=480
+# width=640
+# height=480
 
 camSet1='nvarguscamerasrc sensor-id=0 ee-mode=1 ee-strength=0 tnr-mode=2 tnr-strength=1 wbmode=1 ! video/x-raw(memory:NVMM), width=1920, height=1080, framerate=60/1,format=NV12 ! nvvidconv flip-method='+str(flip1)+' ! video/x-raw, width='+str(dispW)+', height='+str(dispH)+', format=BGRx ! videoconvert ! video/x-raw, format=BGR ! appsink drop=False'
 capture1=cv2.VideoCapture(camSet1, cv2.CAP_GSTREAMER)
