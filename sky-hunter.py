@@ -122,13 +122,6 @@ gst_out_2 = "appsrc ! video/x-raw, format=BGR ! queue ! videoconvert ! video/x-r
     rtph264pay pt=96 ! queue ! application/x-rtp, media=video, encoding-name=H264 ! udpsink host=192.168.50.161 port=6000"
 rtp_out_2 = cv2.VideoWriter(gst_out_2, cv2.CAP_GSTREAMER, 0, float(fps), (int(w), int(h)))
 
-# w = capture3.get(cv2.CAP_PROP_FRAME_WIDTH)
-# h = capture3.get(cv2.CAP_PROP_FRAME_HEIGHT)
-# fps = capture3.get(cv2.CAP_PROP_FPS)
-
-# # gst_out_3 = "appsrc ! video/x-raw, format=GRAY8 ! nvvidconv ! omxh264enc insert-sps-pps=true ! h264parse ! rtph264pay pt=96 ! queue ! application/x-rtp, media=video, encoding-name=H264 ! udpsink host=192.168.50.161 port=7000"
-# # rtp_out_3 = cv2.VideoWriter(gst_out_3, cv2.CAP_GSTREAMER, 0, float(fps), (int(w), int(h)), False)
-
 # # =============================================================================
 # # Output images to folder
 # # =============================================================================
@@ -175,6 +168,7 @@ status_list = [None,None]
 times = []
 df=pandas.DataFrame(columns=["Start","End"])
 font=cv2.FONT_HERSHEY_SIMPLEX
+sent = False
 
 # # =============================================================================
 # # Core program
@@ -185,7 +179,7 @@ try:
     while True:
         _, frame1 = capture1.read()
         _, frame2 = capture2.read()
-        # frame2 = cv2.flip(frame2, 0)
+        frame2 = cv2.flip(frame2, -1)
         frame3 = camera.Capture()
         
         timestamp = datetime.fromtimestamp(time.time())
@@ -209,7 +203,7 @@ try:
             print(item,x,y,w,h,timestamp)
             cv2.putText(frame1,item,(x,y+20),font,.95,(0,0,255),2)
             cv2.rectangle(frame1,(x,y),(w,h),(0,255,255),3)
-            if item == 'person':
+            if item == 'airplane' and detection == False:
                 detection = True
                 status=1
                 objX=x+w/2
@@ -220,8 +214,8 @@ try:
                 if pan<1: pan=0
                 if tilt>179: tilt=180
                 if tilt<1: tilt=0
-                # kit.servo[0].angle=pan
-                # kit.servo[1].angle=tilt
+                kit.servo[0].angle=pan
+                kit.servo[1].angle=tilt
                 print(pan, tilt)
                 break
            
@@ -239,19 +233,19 @@ try:
             print(item,x,y,w,h,timestamp)
             cv2.putText(frame2,item,(x,y+20),font,.95,(0,0,255),2)
             cv2.rectangle(frame2,(x,y),(w,h),(0,255,255),3)
-            if item == 'person':
+            if item == 'airplane' and detection == False:
                 detection = True
                 status=1
                 objX=x+w/2
                 objY=y+h/2
-                pan = objX//3 - 30
+                pan = objX//3 - 40
                 tilt = objY//6 + 90
                 if pan>179: pan=180
                 if pan<1: pan=0
                 if tilt>179: tilt=180
                 if tilt<1: tilt=0
-                # kit.servo[0].angle=pan
-                # kit.servo[1].angle=tilt
+                kit.servo[0].angle=pan
+                kit.servo[1].angle=tilt
                 print(pan, tilt)
                 break  
  
@@ -265,7 +259,7 @@ try:
             w=int(detect.Right)
             item=net.GetClassDesc(ID)
             print(item,x,y,w,h,timestamp)
-            if item == 'person':
+            if item == 'airplane':
                 detection = True
                 status=1
                 objX=(x//2)+(w//2)
@@ -284,21 +278,10 @@ try:
                 if pan<1: pan=1
                 if tilt>179: tilt=179
                 if tilt<1: tilt=1
-                # kit.servo[0].angle=pan
-                # kit.servo[1].angle=tilt
+                kit.servo[0].angle=pan
+                kit.servo[1].angle=tilt
                 lastDetected = timestamp
-                detection = True
                 print(pan, tilt)
-
-        # if tilt>95:
-        #     frame3 = cv2.rotate(frame3, cv2.ROTATE_180)
-            
-        # for y in range(0,dispH,M):
-        #     for x in range(0, dispW, N):
-        #         y1 = y + M
-        #         x1 = x + N
-        #         tiles = fisheye[y:y+M,x:x+N]
-        #         cv2.rectangle(fisheye, (x, y), (x1, y1), (255, 255, 255), 1)
         
         # if detection is True:
         #     if curr_frame % hop == 0:
@@ -306,17 +289,16 @@ try:
         #         print("{} images are extacted in {}.")
         #     curr_frame += 1
     
-        # if detection is True and (timestamp - lastDetected).seconds >= 360 and sent is not True:
-        #     message = client.messages \
-        #         .create(
-        #             body='SkyHunter Detection',
-        #             from_=os.environ['TWILIO_NUMBER'],
-        #             to=os.environ['CELL']
-        #         )
-        #     print(message.sid)
-        #     sent = True
+        if detection == True and (timestamp - lastDetected).seconds >= 360 and sent != True:
+            message = client.messages \
+                .create(
+                    body='SkyHunter Detection',
+                    from_=os.environ['TWILIO_NUMBER'],
+                    to=os.environ['CELL']
+                )
+            print(message.sid)
+            sent = True
         
-       
         #list of status for every frame
         status_list.append(status)
         status_list=status_list[-2:]
@@ -333,7 +315,7 @@ try:
         
         cv2.rectangle(frame1,(0,0),(150,40),(0,0,255),-1)  
         cv2.putText(frame1,'fps: '+str(round(fps,1)),(0,30),font,1,(0,255,255),2) 
-        frame2 = cv2.flip(frame2, -1)
+        # frame1 = cv2.flip(frame1, -1)
         cv2.rectangle(frame2,(0,0),(150,40),(0,0,255),-1)
         cv2.putText(frame2,'fps: '+str(round(fps,1)),(0,30),font,1,(0,255,255),2) 
         display.Render(frame3)
