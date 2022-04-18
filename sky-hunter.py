@@ -11,7 +11,7 @@ import time, board, busio, imutils, pandas
 from time import sleep
 from datetime import datetime
 from twilio.rest import Client
-import os, argparse
+import os, argparse, math
 
 # Create and configure logger
 logging.basicConfig(filename="output.log",
@@ -31,10 +31,12 @@ parser = argparse.ArgumentParser(description="Locate objects in a live camera st
                                  jetson.utils.videoSource.Usage() + jetson.utils.videoOutput.Usage() + jetson.utils.logUsage())
 
 parser.add_argument("input_URI", type=str, default="/dev/video3", nargs='?', help="URI of the input stream")
-parser.add_argument("output_URI", type=str, default="rtp://192.168.50.161:7000, --output-width=1080, --output-height=720, --output-frameRate=30, --output-codec=h265", nargs='?', help="URI of the output stream")
-parser.add_argument("--network", type=str, default="ssd-mobilenet-v2", help="pre-trained model to load (see below for options)")
+parser.add_argument("output_URI", type=str, default="rtp://192.168.50.161:7000", nargs='?', help="URI of the output stream")
+parser.add_argument("--network", type=str, default="coco-airplane", help="pre-trained model to load (see below for options)")
 parser.add_argument("--overlay", type=str, default="box,labels,conf", help="detection overlay flags (e.g. --overlay=box,labels,conf)\nvalid combinations are:  'box', 'labels', 'conf', 'none'")
 parser.add_argument("--threshold", type=float, default=0.5, help="minimum detection threshold to use") 
+parser.add_argument("--snapshots", type=str, default="out_images", help="output directory of detection snapshots")
+parser.add_argument("--timestamp", type=str, default="%Y%m%d-%H%M%S-%f", help="timestamp format used in snapshot filenames")
 
 is_headless = ["--headless"] if sys.argv[0].find('console.py') != -1 else [""]
 
@@ -44,6 +46,16 @@ except:
 	print("")
 	parser.print_help()
 	sys.exit(0)
+
+os.makedirs(opt.snapshots, exist_ok=True)
+
+# # =============================================================================
+# # Detectnet settings
+# # =============================================================================
+
+net = jetson.inference.detectNet(opt.network, sys.argv, opt.threshold)
+output = jetson.utils.videoOutput(opt.output_URI, argv=sys.argv+is_headless)
+input = jetson.utils.videoSource(opt.input_URI, argv=sys.argv)
 
 # # =============================================================================
 # # SMS parameters
@@ -85,14 +97,6 @@ capture1=cv2.VideoCapture(camSet1, cv2.CAP_GSTREAMER)
 
 camSet2='nvarguscamerasrc sensor-id=1 ee-mode=1 ee-strength=0 tnr-mode=2 tnr-strength=1 wbmode=1 ! video/x-raw(memory:NVMM), width=1920, height=1080, framerate=60/1,format=NV12 ! nvvidconv flip-method='+str(flip2)+' ! video/x-raw, width='+str(dispW)+', height='+str(dispH)+', format=BGRx ! videoconvert ! video/x-raw, format=BGR ! appsink drop=False'
 capture2 = cv2.VideoCapture(camSet2, cv2.CAP_GSTREAMER)
-
-# # =============================================================================
-# # Detectnet settings
-# # =============================================================================
- 
-net = jetson.inference.detectNet(opt.network, sys.argv, opt.threshold)
-display = jetson.utils.videoOutput(opt.output_URI, argv=sys.argv+is_headless)
-camera = jetson.utils.videoSource(opt.input_URI, argv=sys.argv)
 
 # # =============================================================================
 # # Timers and detection setings
@@ -187,7 +191,7 @@ try:
         _, frame1 = capture1.read()
         _, frame2 = capture2.read()
         frame2 = cv2.flip(frame2, -1)
-        frame3 = camera.Capture()
+        frame3 = input.Capture()
         
         timestamp = datetime.fromtimestamp(time.time())
         detection = False
@@ -322,8 +326,8 @@ try:
         # frame1 = cv2.flip(frame1, -1)
         cv2.rectangle(frame2,(0,0),(150,40),(0,0,255),-1)
         cv2.putText(frame2,'fps: '+str(round(fps,1)),(0,30),font,1,(0,255,255),2) 
-        display.Render(frame3)
-        display.SetStatus("Object Detection | Network {:.0f} FPS".format(net.GetNetworkFPS()))
+        output.Render(frame3)
+        output.SetStatus("{:s} | Network {:.0f} FPS".format(opt.network, net.GetNetworkFPS()))
         # cv2.imshow("Frame", np.vstack((frame1, frame2)))
         # cv2.moveWindow("Frame", 0, 560)
 
@@ -340,7 +344,6 @@ except KeyboardInterrupt:
         df = df.append({'Start':times[i],'End':times[i+1]},ignore_index=True)
         
     df.to_csv('./out_csv/times-%s.csv' % current_time)
-    cv2.waitKey(0)
     frame2.release()
     frame1.release()
     cv2.destroyAllWindows()
