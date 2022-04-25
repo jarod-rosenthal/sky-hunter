@@ -32,7 +32,7 @@ parser = argparse.ArgumentParser(description="Locate objects in a live camera st
 
 parser.add_argument("input_URI", type=str, default="/dev/video3", nargs='?', help="URI of the input stream")
 parser.add_argument("output_URI", type=str, default="rtp://192.168.50.161:7000", nargs='?', help="URI of the output stream")
-parser.add_argument("--network", type=str, default="coco-airplane", help="pre-trained model to load (see below for options)")
+parser.add_argument("--network", type=str, default="ssd-mobilenet-v2", help="pre-trained model to load (see below for options)")
 parser.add_argument("--overlay", type=str, default="box,labels,conf", help="detection overlay flags (e.g. --overlay=box,labels,conf)\nvalid combinations are:  'box', 'labels', 'conf', 'none'")
 parser.add_argument("--threshold", type=float, default=0.5, help="minimum detection threshold to use") 
 parser.add_argument("--snapshots", type=str, default="out_images", help="output directory of detection snapshots")
@@ -89,9 +89,6 @@ flip2=4
 dispW=640
 dispH=480
 
-# width=640
-# height=480
-
 camSet1='nvarguscamerasrc sensor-id=0 ee-mode=1 ee-strength=0 tnr-mode=2 tnr-strength=1 wbmode=1 ! video/x-raw(memory:NVMM), width=1920, height=1080, framerate=60/1,format=NV12 ! nvvidconv flip-method='+str(flip1)+' ! video/x-raw, width='+str(dispW)+', height='+str(dispH)+', format=BGRx ! videoconvert ! video/x-raw, format=BGR ! appsink drop=False'
 capture1=cv2.VideoCapture(camSet1, cv2.CAP_GSTREAMER)
 
@@ -102,6 +99,8 @@ capture2 = cv2.VideoCapture(camSet2, cv2.CAP_GSTREAMER)
 # # Timers and detection setings
 # # =============================================================================
 
+now = datetime.now()
+current_time = now.strftime("%d_%m_%Y_%H_%M")
 timeMark=time.time()
 dtFIL=0
 font=cv2.FONT_HERSHEY_SIMPLEX
@@ -141,12 +140,12 @@ images_folder = 'out_images'
 if not os.path.exists('out_images'):
     os.mkdir(images_folder)
     
-# KPS = 1 # number of images per second to capture
-# p_fps = round(capture3.get(cv2.CAP_PROP_FPS))
-# hop = round(p_fps / KPS)
-# f_fps = round(capture3.get(cv2.CAP_PROP_FPS))
-# hop = round(f_fps / KPS)
-# curr_frame = 0
+KPS = 1 # number of images per second to capture
+left_fps = round(capture1.get(cv2.CAP_PROP_FPS))
+hop = round(left_fps / KPS)
+right_fps = round(capture2.get(cv2.CAP_PROP_FPS))
+hop = round(right_fps / KPS)
+curr_frame = 0
 
 # # =============================================================================
 # # Output video to a folder
@@ -156,13 +155,13 @@ video_folder = 'out_video'
 if not os.path.exists('out_video'):
     os.mkdir(video_folder)
      
-# frame_width = int(capture3.get(3))
-# frame_height = int(capture3.get(4))
+frame_width = int(capture1.get(3))
+frame_height = int(capture1.get(4))
 
-# filename = './out_video/ptz-%s.mp4' % current_time
-# ptz_out = cv2.VideoWriter(filename,cv2.VideoWriter_fourcc(*'mp4v'), 20, (frame_width,frame_height))
-# n_frames = 0
-# max_number_framed_to_be_saved = 1000
+filename = './out_video/ptz-%s.mp4' % current_time
+ptz_out = cv2.VideoWriter(filename,cv2.VideoWriter_fourcc(*'mp4v'), 20, (frame_width,frame_height))
+n_frames = 0
+max_number_framed_to_be_saved = 1000
 
 # # =============================================================================
 # # Output detection times to csv
@@ -172,8 +171,7 @@ csv_folder = 'out_csv'
 if not os.path.exists('out_csv'):
     os.mkdir(csv_folder)
 
-now = datetime.now()
-current_time = now.strftime("%d_%m_%Y_%H_%M")
+
 filename = './out_video/ptz-%s.mp4' % current_time
 status_list = [None,None]
 times = []
@@ -224,9 +222,9 @@ try:
                 if pan<1: pan=0
                 if tilt>179: tilt=180
                 if tilt<1: tilt=0
-                kit.servo[0].angle=pan
-                kit.servo[1].angle=tilt
-                print(pan, tilt)
+                # kit.servo[0].angle=pan
+                # kit.servo[1].angle=tilt
+                print('left', pan, tilt)
                 break
            
         right=cv2.cvtColor(frame2,cv2.COLOR_BGR2RGBA).astype(np.float32)
@@ -253,23 +251,33 @@ try:
                 if pan<1: pan=0
                 if tilt>179: tilt=180
                 if tilt<1: tilt=0
-                kit.servo[0].angle=pan
-                kit.servo[1].angle=tilt
-                print(pan, tilt)
+                # kit.servo[0].angle=pan
+                # kit.servo[1].angle=tilt
+                print('right', pan, tilt)
                 break  
- 
-        detections = net.Detect(frame3, overlay=opt.overlay)
-        for detect in detections:
-            ID=detect.ClassID
-            y=int(detect.Top)
-            x=int(detect.Left)
-            h=int(detect.Bottom)
-            w=int(detect.Right)
+            
+        detections = net.Detect(frame3, overlay=opt.overlay) 
+        print("detected {:d} objects in image".format(len(detections)))
+            
+        for idx, detection in enumerate(detections):
+            ID=detection.ClassID
+            y=int(detection.Top)
+            x=int(detection.Left)
+            h=int(detection.Bottom)
+            w=int(detection.Right)
             item=net.GetClassDesc(ID)
-            print(item,x,y,w,h,timestamp)
+            roi = (int(detection.Left), int(detection.Top), int(detection.Right), int(detection.Bottom))
+            print(detection)
+            # print(item,x,y,w,h,timestamp)
             if item == 'airplane':
+                
                 detection = True
                 status=1
+                snapshot = jetson.utils.cudaAllocMapped(width=roi[2]-roi[0], height=roi[3]-roi[1], format=frame3.format)
+                jetson.utils.cudaCrop(frame3, snapshot, roi)
+                jetson.utils.cudaDeviceSynchronize()
+                jetson.utils.saveImage(os.path.join(opt.snapshots, f"{timestamp}-{idx}.jpg"), snapshot)
+                del snapshot
                 objX=(x//2)+(w//2)
                 objY=(y//2)+(h//2)
                 errorPan=objX-width/2
@@ -289,7 +297,7 @@ try:
                 kit.servo[0].angle=pan
                 kit.servo[1].angle=tilt
                 lastDetected = timestamp
-                print(pan, tilt)
+                print('ptz', pan, tilt)
         
         # if detection is True:
         #     if curr_frame % hop == 0:
@@ -335,6 +343,12 @@ try:
         rtp_out_2.write(frame2)
 
         if cv2.waitKey(1)==ord('q'):
+            print (' Exiting Program')
+            
+            for i in range(0,len(times),2):
+                df = df.append({'Start':times[i],'End':times[i+1]},ignore_index=True)
+                
+            df.to_csv('./out_csv/times-%s.csv' % current_time)
             break
 
 except KeyboardInterrupt:
